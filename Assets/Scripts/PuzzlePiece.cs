@@ -1,34 +1,70 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PuzzlePiece : MonoBehaviour
 {
-    private Vector3 offset;
-    private Camera mainCamera;
+    public bool isBeingDragged;
+    
+    private Vector3 _offset;
+    private Camera _mainCamera;
+    private Joint _selfJoint, _otherJoint;
+    
+    public void SetConnectTarget(Joint selfJoint, Joint otherJoint)
+    {
+        _selfJoint = selfJoint;
+        _otherJoint = otherJoint;
+    }
+    
+    public void ClearConnectTarget()
+    {
+        _selfJoint = null;
+        _otherJoint = null;
+    }
 
     private void Start()
     {
-        mainCamera = Camera.main; // Cache the main camera
+        _mainCamera = Camera.main; // Cache the main camera
     }
 
-    void OnMouseDown()
+    private void OnMouseDown()
     {
         // Calculate the offset between the mouse position and the object's position
-        offset = transform.position - GetMouseWorldPos();
+        _offset = transform.parent.position - GetMouseWorldPos();
+        isBeingDragged = true;
     }
 
-    void OnMouseDrag()
+    private void OnMouseDrag()
     {
         // Update the position of the object to follow the mouse, considering the offset
-        transform.position = GetMouseWorldPos() + offset;
+        transform.parent.position = GetMouseWorldPos() + _offset;
+    }
+    
+    private void OnMouseUp()
+    {
+        isBeingDragged = false;
+        if (_selfJoint != null)
+        {
+            // Snap the piece to the target position and connect
+            transform.parent.Translate(_otherJoint.transform.position - _selfJoint.transform.position, Space.World);
+            
+            //Destroy(transform.parent.gameObject);
+            for (int i = transform.parent.childCount - 1; i >= 0; i--)
+            {
+                transform.parent.GetChild(i).parent = _otherJoint.puzzlePiece.transform.parent;
+            }
+            
+            _selfJoint.Connect();
+            _otherJoint.Connect();
+            
+            _selfJoint = null;
+            _otherJoint = null;
+        }
     }
 
     private Vector3 GetMouseWorldPos()
     {
         // Convert mouse screen position to world position
         Vector3 mousePoint = Input.mousePosition;
-        mousePoint.z = -mainCamera.transform.position.z; // Ensure the z-position is consistent
-        return mainCamera.ScreenToWorldPoint(mousePoint);
+        mousePoint.z = -_mainCamera.transform.position.z; // Ensure the z-position is consistent
+        return _mainCamera.ScreenToWorldPoint(mousePoint);
     }
 }
