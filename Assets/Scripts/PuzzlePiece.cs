@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class PuzzlePiece : MonoBehaviour
@@ -6,28 +7,21 @@ public class PuzzlePiece : MonoBehaviour
     
     private Vector3 _offset;
     private Camera _mainCamera;
-    private Joint _selfJoint, _otherJoint;
-    
-    public void SetConnectTarget(Joint selfJoint, Joint otherJoint)
-    {
-        _selfJoint = selfJoint;
-        _otherJoint = otherJoint;
-    }
-    
-    public void ClearConnectTarget()
-    {
-        _selfJoint = null;
-        _otherJoint = null;
-    }
 
-    private void Start()
+    private void Awake()
     {
-        _mainCamera = Camera.main; // Cache the main camera
+        _mainCamera = Camera.main;
+        if (transform.parent == null)
+        {
+            // create new parent object
+            GameObject parent = new GameObject("PuzzlePieceParent");
+            parent.transform.position = transform.position;
+            transform.parent = parent.transform;
+        }
     }
 
     private void OnMouseDown()
     {
-        // Calculate the offset between the mouse position and the object's position
         _offset = transform.parent.position - GetMouseWorldPos();
         isBeingDragged = true;
     }
@@ -41,23 +35,65 @@ public class PuzzlePiece : MonoBehaviour
     private void OnMouseUp()
     {
         isBeingDragged = false;
-        if (_selfJoint != null)
+
+        var closeJointList = new List<Joint>();
+        for (int i = 0; i < transform.parent.childCount; i++)
         {
-            // Snap the piece to the target position and connect
-            transform.parent.Translate(_otherJoint.transform.position - _selfJoint.transform.position, Space.World);
-            
-            //Destroy(transform.parent.gameObject);
-            for (int i = transform.parent.childCount - 1; i >= 0; i--)
+            var p = transform.parent.GetChild(i);
+            foreach (Joint j in p.GetComponentsInChildren<Joint>())
             {
-                transform.parent.GetChild(i).parent = _otherJoint.puzzlePiece.transform.parent;
+                if (j.GetTargetJoint() == null) continue;
+                if (j.isConnected) continue;
+            
+                closeJointList.Add(j);
             }
-            
-            _selfJoint.Connect();
-            _otherJoint.Connect();
-            
-            _selfJoint = null;
-            _otherJoint = null;
         }
+        
+        if (closeJointList.Count == 0) return;
+        
+        // find the closest pair
+        Joint selfJoint = closeJointList[0];
+        Joint targetJoint = closeJointList[0].GetTargetJoint();
+        float minDistance = Vector3.Distance(targetJoint.transform.position, selfJoint.transform.position);
+        foreach (Joint j in closeJointList)
+        {
+            Joint target = j.GetTargetJoint();
+            float distance = Vector3.Distance(j.transform.position, target.transform.position);
+            if (distance < minDistance)
+            {
+                targetJoint = target;
+                selfJoint = j;
+                minDistance = distance;
+            }
+        }
+        
+        // Connect the joints
+        selfJoint.Connect();
+        targetJoint.Connect();
+        
+        // set normal for other close joints
+        foreach (Joint j in closeJointList)
+        {
+            if (j == selfJoint) continue;
+            j.SetColor(j.normal);
+            j.GetTargetJoint().SetColor(j.normal);
+        }
+        
+        // Snap the piece to the target position and connect
+        transform.parent.Translate(targetJoint.transform.position - selfJoint.transform.position, Space.World);
+            
+        var tempChildList = new List<Transform>();
+        for (int i = 0; i < transform.parent.childCount; i++)
+        {
+            tempChildList.Add(transform.parent.GetChild(i));
+        }
+
+        foreach (var c in tempChildList)
+        {
+            c.parent = targetJoint.puzzlePiece.transform.parent;
+        }
+
+        GetComponent<Collider2D>().enabled = true;
     }
 
     private Vector3 GetMouseWorldPos()

@@ -11,6 +11,12 @@ public class Joint : MonoBehaviour
     
     private SpriteRenderer _spriteRenderer;
     private List<Joint> _closeJointList;
+    private Joint _targetJoint;
+
+    public Joint GetTargetJoint()
+    {
+        return _targetJoint;
+    }
     
     public void Connect()
     {
@@ -32,7 +38,6 @@ public class Joint : MonoBehaviour
     {
         gameObject.tag = "Joint";
         _spriteRenderer = GetComponent<SpriteRenderer>();
-        puzzlePiece = GetComponentInParent<PuzzlePiece>();
         _closeJointList = new List<Joint>();
         
         _spriteRenderer.color = normal;
@@ -41,12 +46,29 @@ public class Joint : MonoBehaviour
     private void Update()
     {
         if (isConnected) return;
-        if (!puzzlePiece.isBeingDragged) return;
-        
+        bool pieceOfSameParentIsBeingDragged = false;
+        for (int i = 0; i < puzzlePiece.transform.parent.childCount; i++)
+        {
+            var p = puzzlePiece.transform.parent.GetChild(i);
+            if (p.GetComponent<PuzzlePiece>().isBeingDragged)
+            {
+                pieceOfSameParentIsBeingDragged = true;
+                break;
+            }
+        }
+        if (!pieceOfSameParentIsBeingDragged) return;
+
+        for (var i = _closeJointList.Count - 1; i >= 0; i--)
+        {
+            if (IsSameParent(_closeJointList[i]))
+                _closeJointList.RemoveAt(i);
+        }
+
         if (_closeJointList.Count == 0)
         {
             _spriteRenderer.color = normal;
-            puzzlePiece.ClearConnectTarget();
+            
+            _targetJoint = null;
         }
         else
         {
@@ -66,8 +88,13 @@ public class Joint : MonoBehaviour
             SetColor(highlighted);
             closestJoint.SetColor(highlighted);
             
-            puzzlePiece.SetConnectTarget(this, closestJoint);
+            _targetJoint = closestJoint;
         }
+    }
+
+    private bool IsSameParent(Joint other)
+    {
+        return other.puzzlePiece.transform.parent == puzzlePiece.transform.parent;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -78,7 +105,7 @@ public class Joint : MonoBehaviour
         {
             Joint otherJoint = other.GetComponent<Joint>();
 
-            if (otherJoint.puzzlePiece == puzzlePiece) 
+            if (IsSameParent(otherJoint)) 
                 return;
             
             if (otherJoint.isConnected) 
@@ -96,15 +123,8 @@ public class Joint : MonoBehaviour
         {
             Joint otherJoint = other.GetComponent<Joint>();
             
-            if (otherJoint.puzzlePiece == puzzlePiece) 
-                return;
-            
-            if (otherJoint.isConnected)
-                return;
-            else
-                otherJoint.SetColor(normal);
-            
-            _closeJointList.Remove(otherJoint);
+            if (_closeJointList.Contains(otherJoint))
+                _closeJointList.Remove(otherJoint);
         }
     }
 }
