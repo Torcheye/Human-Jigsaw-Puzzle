@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using TorcheyeUtility;
 using UnityEngine;
 
 public class PuzzlePiece : MonoBehaviour
 {
     public bool isBeingDragged;
+    public bool canBeDragged = true;
     
     private Vector3 _offset;
     private Camera _mainCamera;
@@ -22,12 +24,14 @@ public class PuzzlePiece : MonoBehaviour
 
     private void OnMouseDown()
     {
+        if (!canBeDragged) return;
         _offset = transform.parent.position - GetMouseWorldPos();
         isBeingDragged = true;
     }
 
     private void OnMouseDrag()
     {
+        if (!canBeDragged) return;
         // Update the position of the object to follow the mouse, considering the offset
         transform.parent.position = GetMouseWorldPos() + _offset;
     }
@@ -70,6 +74,7 @@ public class PuzzlePiece : MonoBehaviour
         // Connect the joints
         selfJoint.Connect();
         targetJoint.Connect();
+        AudioManager.Instance.PlaySoundEffect(AudioManager.SoundEffect.Flesh);
         
         // set normal for other close joints
         foreach (Joint j in closeJointList)
@@ -102,5 +107,14 @@ public class PuzzlePiece : MonoBehaviour
         Vector3 mousePoint = Input.mousePosition;
         mousePoint.z = -_mainCamera.transform.position.z; // Ensure the z-position is consistent
         return _mainCamera.ScreenToWorldPoint(mousePoint);
+    }
+    
+    // rotate the piece
+    private void OnMouseOver()
+    {
+        if (Input.GetMouseButtonDown(1))
+        {
+            transform.parent.Rotate(0, 0, 30);
+        }
     }
 }

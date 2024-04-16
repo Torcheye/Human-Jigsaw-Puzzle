@@ -123,6 +123,10 @@ public class Joint : MonoBehaviour
         {
             Joint otherJoint = other.GetComponent<Joint>();
             
+            if (otherJoint.isConnected) 
+                return;
+            otherJoint.SetColor(otherJoint.normal);
+            
             if (_closeJointList.Contains(otherJoint))
                 _closeJointList.Remove(otherJoint);
         }
